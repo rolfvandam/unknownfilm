@@ -1,0 +1,69 @@
+{% load staticfiles %}<!DOCTYPE html>
+<html>
+
+<head>
+    {% include "ufilm/dependencies.html" %}
+    <style>
+        em {
+            font-weight: bold;
+            font-style: normal;
+        }
+        .left-value {
+            text-align: right;
+        }
+        .right-value {
+            text-align: left;
+        }
+        #top-menu {
+            background-color: orange;
+            padding: 10px;
+            padding-left: 20px;
+            padding-right: 30px;
+            margin-bottom: 20px;
+        }
+        .left-menu {
+            float: right;
+        }
+        .left-menu a, .left-menu a:hover, .left-menu a:active {
+            margin-left: 20px;
+            text-transform: uppercase;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a {
+            color: darkorange;
+        }
+        h1, h2 {
+            font-variant: small-caps;
+        }
+        .link-table td {
+            padding: 3px;
+            padding-right: 14px;
+        }
+        .link-table {
+            margin-bottom: 50px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="top-menu">
+        <a href="{% url 'home' %}">
+            <img src="{% static 'ufilm-logo.png' %}" />
+        </a>
+        <div class="left-menu">
+            <a href="{% url 'help' %}">
+                help
+            </a>
+            <a href="{% url 'about' %}">
+                about
+            </a>
+        </div>
+    </div>
+
+    {% block content %}
+    {% endblock %}
+</body>
+
+</html>
