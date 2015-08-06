@@ -12,23 +12,37 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+import sys
+import json
 
 import rest_framework
 
-import private
+USE_X_FORWARDED_HOST = True
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+host_settings_path = os.path.join(
+    os.path.dirname(BASE_DIR),
+    "host-settings.json"
+)
+try:
+    assert os.path.exists(host_settings_path)
+except AssertionError:
+    print >> sys.stderr, "Host settings file not found in %s"
+
+host_settings = json.load(open(host_settings_path))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '3&b@3a$fcx-r_=0-h6#%^s7+lxb_=ytj=uqvkb*zfkm5f#aa-j'
+# Don't forget to set these environment variables on the host!
+SECRET_KEY = host_settings['SECRET']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True if int(host_settings['DEBUG']) > 0 else False
 
-ALLOWED_HOSTS = ['deb-vm-x64']
+ALLOWED_HOSTS = ['deb-vm-x64', 'unknownfilm.net']
 
 
 # Application definition
@@ -43,6 +57,8 @@ INSTALLED_APPS = (
     'rest_framework',
     'webpack_loader',
     'easy_thumbnails',
+    'django_nose',
+
     'ufilm',
     'scraper',
 )
@@ -84,12 +100,16 @@ WSGI_APPLICATION = 'unknownfilm.wsgi.application'
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
 DATABASES = {
+
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'unknownfilm',
-        'USER': private.MYSQL_USER,
-        'PASSWORD': private.MYSQL_PASSWORD
+        'USER': host_settings['DB_USER'],
+        'PASSWORD': host_settings['DB_PASSWORD'],
+        'HOST': host_settings['DB_HOST'],
+        'PORT': 5432
     }
+
 }
 
 
@@ -112,9 +132,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "ufilm/static/")
-
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'ufilm/assets'),
+#    os.path.join(BASE_DIR, 'ufilm/assets'),
 )
 
 MEDIA_URL = '/media/'

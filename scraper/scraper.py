@@ -14,10 +14,16 @@ from .imdb import IMDBTVPicksPage, IMDBMovieReleasesPage, IMDBTitlePage, IMDBLis
 
 
 class Scraper(object):
+    '''Parent class that implements the scraping process for a particular title type'''
 
     CACHE_SIZE = 1000
 
     def __init__(self, threads=1):
+        '''Seeds the scraper with new titles from, for example, 
+        the tv picks page or movie releases page.
+
+        threads -- int, sets the number of threads to use for this scraper
+        '''
         self.max_threads = threads
         self.threads = []
         self.title_cache = {}
@@ -30,6 +36,9 @@ class Scraper(object):
 
     @classmethod
     def clean_queue(cls):
+        '''Rids the title queue of already scraped titles (just in case) and unlocks
+        the titles that were about to be scraped but were rudely interrupted by 
+        some uncaring user.'''
         print "Cleaning queue..."
         for title in Title.objects.all():
             if (ProcessedTitle.objects.filter(code=title.code).exists() or
@@ -58,6 +67,8 @@ class Scraper(object):
         else:
             cache_dict[item] = 1
 
+    # We use a cache for titles and lists to save trips to the db when
+    # we already know that it's not a new item.
     def in_title_cache(self, title):
         return self.in_cache(title, self.title_cache)
 
@@ -133,11 +144,13 @@ class Scraper(object):
     def process_list(self, list_code, list_page_getter=None):
         if not list_page_getter:
             list_page_getter = self.list_page_getter
-        titles = self.imdb_list_page_getter.get_info(imdb_id=list_code)
+        titles = list_page_getter.get_info(imdb_id=list_code)
         new_titles = self.filter_existing_titles(titles)
         self.add_new_titles(new_titles)
+        return new_titles
 
     def scrape_loop(self):
+        '''This is the main loop that all the workers run to get more titles / lists'''
         title_page_getter = IMDBTitlePage()
         list_page_getter = IMDBListPage()
         while True:
@@ -156,8 +169,24 @@ class Scraper(object):
                     else:
                         self.output_message("Nothing left to scrape, thread exiting...")
                         return
-            except(UnicodeEncodeError, AssertionError, urllib3.exceptions.HTTPError, IndexError, AttributeError) as e:
-                self.output_message("Scrape error, continuing thread... %s"%(unicode(e)))
+
+                ''' 
+                We should keep going no matter what. We can always try 
+                another title/list but we can't loose the thread or 
+                we'll degrade performance throughout the run.
+                '''
+            except(
+                UnicodeEncodeError, 
+                AssertionError, 
+                urllib3.exceptions.HTTPError, 
+                IndexError, 
+                AttributeError
+            ) as e:
+                self.output_message(
+                    "Scrape error, continuing thread... %s"%(
+                        unicode(e)
+                    )
+                )
 
     def start_scrape_threads(self):
         self.print_lock = threading.Lock()
@@ -168,20 +197,24 @@ class Scraper(object):
             thread.start()
 
     def start(self):
+        '''Starts the whole thing'''
         self.start_scrape_threads()
         print "%s threads started"%(self.title_type)
 
 class TVScraper(Scraper):
+    '''Just scrapes titles and lists of type tv'''
 
     imdb_seeder_class = IMDBTVPicksPage
     title_type = 'tv'
 
 class MovieScraper(Scraper):
+    '''Just scrapes titles and lists of type movie'''
 
     imdb_seeder_class = IMDBMovieReleasesPage
     title_type = 'movie'
 
 class ScraperController(object):
+    '''This runs the whole scraping show.'''
 
     def exit_handler(self, signal, frame):
         print('Exiting...')
@@ -193,7 +226,11 @@ class ScraperController(object):
         signal.pause()
 
     def scrape(self):
+        '''This starts the scraping process.
 
+        It's implemented in such a way that we should get a nice mix of 
+        tv and movies all the way through.
+        '''
         Scraper.clean_queue()
         
         self.tv_scraper = TVScraper(threads=2)
@@ -201,6 +238,5 @@ class ScraperController(object):
 
         self.tv_scraper.start()
         self.movie_scraper.start()
-        #self.movie_scraper.scrape_loop()
         
         self.wait_for_ctrl_c()

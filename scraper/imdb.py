@@ -5,6 +5,7 @@ import IPython
 import sys
 
 class IMDBTitlePage(object):
+    '''Provides an interface to get title information from IMDb'''
 
     def __init__(self):
         self.http = urllib3.PoolManager()
@@ -19,7 +20,11 @@ class IMDBTitlePage(object):
         return soup
 
     def get_info(self, imdb_id=None):
+        '''Returns information about the title associated with imdb_id
 
+        imdb_id --  Can either be a string (the kind that starts with tt) or 
+                    an int thats just the trailing number
+        '''
         if imdb_id:
             if isinstance(imdb_id, int):
                 self.url = "http://akas.imdb.com/title/tt%07d/"%(int(imdb_id))
@@ -50,9 +55,10 @@ class IMDBTitlePage(object):
             return re.sub("^ *?([^ ]+) *?$", r"\1", s)
 
         def get_url_labels(prefix):
+            title_detail_selector = soup.select("#titleDetails a")
             return [
                 rm_spaces(unicode(a.get_text()))
-                for a in soup.select("#titleDetails a")
+                for a in title_detail_selector
                 if re.search("^%s"%(prefix), a.get('href'))
             ]
 
@@ -60,16 +66,32 @@ class IMDBTitlePage(object):
             return re.search("\(?([0-9]{4})", s).group(1)
 
         def get_title_type(soup):
-            if re.search("TV Series", soup.select("#overview-top .infobar")[0].get_text()):
+            info_selector = soup.select("#overview-top .infobar")
+            if len(info_selector) <= 0:
+                raise ValueError("No title type found")
+            info_text = unicode(
+                info_selector[0].get_text()
+            )
+            if re.search("TV", info_text):
                 return "tv"
             else:
                 return "movie"
 
         info = {}
         
-        info['title'] = unicode(soup.select("#overview-top h1.header .itemprop")[0].get_text())
+        title_selection = soup.select("#overview-top h1.header .itemprop")
+        if len(title_selection) > 0:
+            info['title'] = unicode(title_selection[0].get_text())
+        else:
+            raise ValueError("No title found")
+
         info['title_type'] = get_title_type(soup)
-        info['year'] = int(parse_year(soup.select("#overview-top h1.header .nobr")[0].get_text()))
+
+        year_selector = soup.select("#overview-top h1.header .nobr")
+        if len(year_selector) > 0:
+            info['year'] = int(parse_year(year_selector[0].get_text()))
+        else:
+            raise ValueError("No year found")
 
         description_selector = soup.select("div[itemprop=description] p")
         info['description'] = unicode(list(description_selector[0].children)[0] if (
@@ -86,12 +108,12 @@ class IMDBTitlePage(object):
             votes_selector[0].get_text().replace(",","")
         ) if votes_selector else 0
 
-        duration_selection = soup.select("time[itemprop=duration]")
-        if duration_selection:
+        duration_selector = soup.select("time[itemprop=duration]")
+        if duration_selector:
             info['runtime'] = int(
                 re.search(
                     "([0-9]+) min", 
-                    duration_selection[0].get_text()
+                    duration_selector[0].get_text()
                 ).group(1)
             )
 
@@ -99,20 +121,23 @@ class IMDBTitlePage(object):
         info['writers'] = get_people_listing("creator")
         info['actors'] = get_people_listing("actors")
 
+        genre_selector = soup.select("#titleStoryLine div[itemprop=genre] a")
         info['genres'] = [
             rm_spaces(a.get_text())
-            for a in soup.select("#titleStoryLine div[itemprop=genre] a")
+            for a in genre_selector
         ]
 
-        rating_selection = soup.select("meta[itemprop=contentRating]")
-        if rating_selection:
-            info['rating'] = rating_selection[0]['content']
+        rating_selector = soup.select("meta[itemprop=contentRating]")
+        if rating_selector:
+            info['rating'] = rating_selector[0]['content']
 
         info['countries'] = get_url_labels("/country")
         info['languages'] = get_url_labels("/language")
+
+        related_list_selector = soup.select("#relatedListsWidget .list_name a")
         info['related_lists'] = [
             url_to_id(a.get('href'))
-            for a in soup.select("#relatedListsWidget .list_name a")
+            for a in related_list_selector
         ]
 
         covers = soup.select("#img_primary img[itemprop=image]")
@@ -124,6 +149,7 @@ class IMDBTitlePage(object):
 
 
 class IMDBListPage(IMDBTitlePage):
+    '''Provides an interface to IMDb list pages'''
 
     @staticmethod
     def url_to_id(url):
@@ -142,7 +168,11 @@ class IMDBListPage(IMDBTitlePage):
         ]
 
     def get_info(self, imdb_id=None):
+        '''Returns the list of imdb_id's from the IMDb list associated with imdb_id
 
+        imdb_id --  Can either be a string (the kind that starts with ls) or 
+                    an int thats just the trailing number
+        '''
         if imdb_id:
             if isinstance(imdb_id, int):
                 self.url = "http://akas.imdb.com/list/ls%09d/"%(int(imdb_id))
@@ -152,10 +182,8 @@ class IMDBListPage(IMDBTitlePage):
                 raise ValueError("imdb_id is not str, unicode or int")
 
         soup = self.get_soup()
-        assert soup
         
         s = soup.select("img.zero-z-index")
-        assert s
         
         urls = [
             a.get("href")
@@ -165,6 +193,10 @@ class IMDBListPage(IMDBTitlePage):
 
 
 class IMDBTVPicksPage(IMDBListPage):
+    '''Provides an interface to IMDb's TV Picks page
+
+    Use the same way you use a IMDBListPage but without the imdb_id
+    '''
 
     def __init__(self):
         super(self.__class__, self).__init__()
@@ -172,12 +204,15 @@ class IMDBTVPicksPage(IMDBListPage):
 
 
 class IMDBMovieReleasesPage(IMDBListPage):
+    '''Provides an interface to IMDb's movie releases page'''
 
     def __init__(self):
         super(self.__class__, self).__init__()
         self.url = "http://akas.imdb.com/calendar/?region=us"
 
     def get_info(self):
+        '''Returns the list of imdb_id's (strings) on the movie releases page'''
+
         soup = self.get_soup()
         urls = [
             a.get("href")
@@ -186,5 +221,3 @@ class IMDBMovieReleasesPage(IMDBListPage):
         return list(set(
             self.urls_to_ids(urls)
         ))
-
-#print IMDBTitlePage("tt4532484").get_info()

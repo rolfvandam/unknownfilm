@@ -4,6 +4,7 @@ from django.db import transaction
 from ufilm.models import TITLE_TYPES
 
 class Scrapable(models.Model):
+    '''Abstract class for items that can be scraped'''
     
     is_locked = models.BooleanField(default=False)
     code = models.CharField(
@@ -23,6 +24,7 @@ class Scrapable(models.Model):
     @classmethod
     @transaction.atomic
     def get_and_lock_from_top(cls, title_type):
+        '''Returns the next scrapable of type title_type that should be scraped'''
         try:
             
             scrapable = cls.objects.select_for_update().filter(
@@ -42,18 +44,28 @@ class Scrapable(models.Model):
             return None
 
 class Title(Scrapable):
+    '''Scrapable title
+
+    If is_locked is set this title is in the process of being scraped
+    '''
 
     SCRAPABILITY_QUALIFIERS = {
         'is_locked': False
     }
 
 class TitleList(Scrapable):
+    '''Scrapable list of titles
+
+    title_type in this context means the title type that this list appeared on when it was added
+
+    If is_locked is set this list is in the process of being scraped or has been scraped.
+    If is_processed is set as well this means the list has been scraped.
+    '''
 
     SCRAPABILITY_QUALIFIERS = {
         'is_locked': False,
         'is_processed': False
     }
-
-
+    
     is_processed = models.BooleanField(default=False)
     

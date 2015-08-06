@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 from django.db.models import Count, Max
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import viewsets
@@ -16,8 +16,9 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.reverse import reverse as rest_reverse
 
-from models import Film, Genre, Rating, Language, Country
-from serializers import FilmSerializer
+from .models import Film, Genre, Rating, Language, Country
+from .serializers import FilmSerializer
+
 
 def scalar_filter(field_name, filter_type, conversion=int):
     return lambda queryset, value: queryset.filter(
@@ -48,11 +49,15 @@ def list_filter(field_name):
     )
 
 class FilmViewSet(viewsets.ModelViewSet):
+    '''Provides the REST interface for the title listing'''
     
     queryset = Film.objects.all().order_by('-grade')
     serializer_class = FilmSerializer
     permission_classes = [AllowAny]
 
+    # Translates a given GET parameter into a function that 
+    # accepts the parameter value and a queryset and returns 
+    # the appropriate (further) filtered queryset
     param_to_filter_map = {
         'year_min': int_filter('year', 'gte'),
         'year_max': int_filter('year', 'lte'),
@@ -67,10 +72,16 @@ class FilmViewSet(viewsets.ModelViewSet):
         'languages_included': list_filter('languages__id'),
 
         'tv': type_filter('title_type','tv'),
-        'movies': type_filter('title_type','movie')
+        'movies': type_filter('title_type','movie'),
+
+        'coverless': lambda queryset, value: queryset.exclude(cover=None) if (
+                value and json.loads(value)
+            ) else queryset
     }
     
     def get_queryset(self):
+        '''Goes through all the GET parameters for this query that are mapped to 
+        queryset modifiers and modifies the queryset to reflect them.'''
         queryset = self.queryset
         for key in self.param_to_filter_map.keys():
             if self.request.GET.has_key(key) and self.request.GET.get(key):
@@ -78,6 +89,7 @@ class FilmViewSet(viewsets.ModelViewSet):
                     queryset,
                     self.request.GET.get(key)
                 )
+                print "!!", queryset.query
         sortby = self.request.GET.get('sortby', 'grade')
         order = self.request.GET.get('order', '')
         queryset = queryset.order_by(
@@ -89,6 +101,7 @@ class FilmViewSet(viewsets.ModelViewSet):
         return queryset.distinct()
 
 class FilmListingController(object):
+    '''Provides the frontend with the data to configure the film listing.'''
 
     def __init__(self, config=None, request=None):
         self.request = request
@@ -112,9 +125,9 @@ class FilmListingController(object):
         }
 
     def get_initial_listing(self):
+        '''Returns the initial data to drive the configuration of the film listing'''
         max_votes = Film.objects.all().aggregate(Max('votes'))['votes__max']
         max_year = Film.objects.all().aggregate(Max('year'))['year__max']
-        votes_bins = Film.get_votes_bins(num_bins=30)
         return {
             "sliders":{
                 "order":["votes","score","year"],
@@ -124,9 +137,9 @@ class FilmListingController(object):
                         "min": 0, 
                         "max": max_votes,
                         "round": 0,
-                        "left_value": 200,
+                        "left_value": 200000,
                         "right_value": max_votes,
-                        "bins": votes_bins
+                        "log_scale": True
                     },
                     "score": {
                         "label": "Score",
@@ -174,8 +187,8 @@ class FilmListingController(object):
             },
             "features":{
                 "order": ["coverless", "movies", "tv"],
-                "coverless": ("Without cover", ""),
-                "movies": ("Movies", "true"),
+                "coverless": ("Without cover", json.dumps(True)),
+                "movies": ("Movies", json.dumps(True)),
                 "tv": ("TV", "")
             },
             "listing_url": "%s.json"%(
@@ -183,12 +196,13 @@ class FilmListingController(object):
             )
         }
 
+def init_listing_config(request):
+    controller = FilmListingController(request=request)
+    return JsonResponse(controller.config)
+
 def home(request):
+    '''Homepage view'''
     current = 'home'
-    if request.is_ajax():
-        controller = FilmListingController(request=request)
-        initial_data_dump = json.dumps(controller.config)
-        return HttpResponse(initial_data_dump)
     return render_to_response("ufilm/home.html", locals(), context_instance=RequestContext(request))
 
 def help_(request):

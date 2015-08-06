@@ -3,6 +3,7 @@ import re
 import os
 import hashlib
 import urllib2
+import IPython
 
 from django.db import models
 from django.core.mail import send_mail
@@ -25,9 +26,18 @@ TITLE_TYPES = (
 )
 
 class BadFilm(models.Model):
+    '''Serves as a black list for titles that give us parsing problems. 
+    Usually because there's essential information missing on the IMDb page.
+    This way we don't end up retrieving them over and over because we think
+    we haven't indexed this title yet.'''
     code = models.CharField(max_length=200)
 
 class Film(models.Model):
+    '''Represents an IMDb title.
+
+    TODO: Should be renamed to Title 
+    (careful: migration could be very involved)
+    '''
     
     title_type = models.CharField(
         max_length=5, 
@@ -35,26 +45,29 @@ class Film(models.Model):
     )
     
     code = models.CharField(max_length=200)
-    
-    grade = models.FloatField(blank=True, null=True)
-    votes = models.PositiveIntegerField(blank=True, null=True)
 
-    year = models.PositiveIntegerField()
-    runtime = models.PositiveIntegerField(default=0, blank=True, null=True)
-    
     title = models.CharField(max_length=200)
     description = models.TextField(default='')
 
-    countries = models.ManyToManyField('Country', default=None, blank=True)
-    languages = models.ManyToManyField('Language', default=None, blank=True)
-
+    cover = models.ImageField(upload_to='covers/', blank=True, null=True)
+    
+    grade = models.FloatField(blank=True, null=True)
+    votes = models.PositiveIntegerField(blank=True, null=True)
+    year = models.PositiveIntegerField()
+    runtime = models.PositiveIntegerField(default=0, blank=True, null=True)
+    
     rating = models.ForeignKey('Rating', default=None, null=True, blank=True)
     rating_text = models.TextField(default='', null=True, blank=True)
+
+    countries = models.ManyToManyField('Country', default=None, blank=True)
+    languages = models.ManyToManyField('Language', default=None, blank=True)
 
     genres = models.ManyToManyField('Genre', blank=True)
     directors = models.ManyToManyField('Person', related_name='directed', blank=True)
     stars = models.ManyToManyField('Person', related_name='starred_in', blank=True)
     writers = models.ManyToManyField('Person', related_name='wrote', blank=True)
+
+    NOCOVER_PATH = os.path.join(COVER_PATH, 'nocover.jpg')
     
     def __unicode__(self):
         return unicode(self.title)
@@ -68,14 +81,7 @@ class Film(models.Model):
         )
 
     def get_cover_path(self):
-        code = self.code if self.has_cover() else "nocover"
-        return self.__class__.get_potential_cover_path(code)
-
-    @classmethod
-    def download_cover(cls, code, url):
-        cover_path = cls.get_potential_cover_path(code)
-        with open(cover_path, 'w') as f:
-            f.write(urllib2.urlopen(url).read())
+        return self.cover.path if self.cover else self.NOCOVER_PATH        
 
     def get_cover_url(self, width=214,height=317):
         thumb = get_thumbnailer(self.get_cover_path()).get_thumbnail({
@@ -83,10 +89,10 @@ class Film(models.Model):
             'crop': 'smart',
             'quality': 95
         })
-        image_name = os.path.basename(thumb.name)
         return os.path.join(
-            "/media/covers/", 
-            image_name
+            self.cover.storage.base_url,
+            self.cover.field.upload_to, 
+            os.path.basename(thumb.url)
         )
 
     def get_small_cover_url(self):
@@ -96,9 +102,7 @@ class Film(models.Model):
         return self.get_cover_url(width=214, height=317)
 
     def has_cover(self):
-        return os.path.exists(
-            self.__class__.get_potential_cover_path(self.code)
-        )
+        return True if self.cover else False
 
     def get_imdb_url(self):
         return "http://imdb.com/title/%s/"%(self.code)
@@ -123,26 +127,6 @@ class Film(models.Model):
             return self.rating.name
         else:
             return ""
-
-    @classmethod
-    def get_votes_bins(cls, num_bins=30):
-        votes_max = cls.objects.all().aggregate(
-            Max('votes')
-        )['votes__max']
-        votes_step = votes_max / num_bins
-        r = range(0, votes_max, votes_step)
-        ranges = zip(r[:-1],r[1:-1]+[votes_max+1])
-        bins = [
-            cls.objects.filter(
-                votes__gte=bottom, 
-                votes__lt=top
-            ).count()
-            for bottom, top in ranges
-        ]
-        bins = [v+1 for v in bins]
-        bins_total = sum(bins)
-        bins = [float(b)/bins_total for b in bins]
-        return bins
 
 class Label(models.Model):
     name = models.CharField(max_length=200, default='')
@@ -170,27 +154,3 @@ class List(models.Model):
     
     def __unicode__(self):
         return unicode(self.code)
-
-class Page(models.Model):
-    number = models.PositiveIntegerField(default=0)
-    
-    def __unicode__(self):
-        return unicode(self.number)
-
-class ActiveList(List):
-    pass
-
-class ActivePage(Page):
-    pass
-
-class FirstLanguages(models.Model):
-    languages = models.ManyToManyField('Language', default=None)
-    
-    def remainder(self):
-        return Language.objects.exclude(name__in=map(lambda x: x.name, self.languages.all())).order_by('name')
-    
-class FirstCountries(models.Model):
-    countries = models.ManyToManyField('Country', default=None)
-    
-    def remainder(self):
-        return Country.objects.exclude(name__in=map(lambda x: x.name, self.countries.all())).order_by('name')   
