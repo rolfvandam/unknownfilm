@@ -1,8 +1,12 @@
+import urllib2
+
 from django import forms
+from django.core.files.base import ContentFile
 
 from .models import Film as Title, Country, Language, Genre, Person, Rating
 
 class TitleForm(forms.ModelForm):
+    '''This is used to validate the data coming from IMDb'''
 
     class Meta:
         model = Title
@@ -52,7 +56,12 @@ class TitleForm(forms.ModelForm):
 
     @classmethod
     def create_from_data(cls, imdb_code, data):
-        
+        '''Returns a new Title object based on data retrieved from IMDb
+
+        imdb_code -- string, title identifier used on IMDb
+        data -- dict containing the data returned from IMDb
+        '''
+
         def names_to_object_ids(key, model, accessor=lambda x: x):
             if data.has_key(key):
                 return [
@@ -65,6 +74,7 @@ class TitleForm(forms.ModelForm):
         person_accessor = lambda x: x['name']
 
         resolved_data = {}
+        file_data = {}
         resolved_data.update({
             key: data[key] if data.has_key(key) else None
             for key in cls.direct_fields
@@ -85,12 +95,20 @@ class TitleForm(forms.ModelForm):
             'stars': names_to_object_ids('actors', Person, accessor=person_accessor),
             'writers': names_to_object_ids('writers', Person, accessor=person_accessor)
 
-        })
+        })            
         form = cls(resolved_data)
         if form.is_valid():
             if data.has_key('cover_url') and data['cover_url']:
-                Title.download_cover(imdb_code, data['cover_url'])
-            return form.save()
+                content = urllib2.urlopen(data['cover_url']).read()
+                o = form.save(commit=False)
+                filename = "%s.jpg"%(o.code)
+                o.cover.save(
+                    filename, 
+                    ContentFile(content)
+                )
+                return o
+            else:
+                return form.save()
         else:
-            raise forms.ValidationError("Title create: %s"%(unicode(form.errors)))
+            raise forms.ValidationError("Title IMDb data invalid: %s"%(unicode(form.errors)))
 

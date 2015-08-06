@@ -7,10 +7,12 @@ For more information on this file, see
 https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 """
 
+import sys
 import os
+import site
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "unknownfilm.settings")
+os.environ["DJANGO_SETTINGS_MODULE"] = "unknownfilm.settings"
 
 application = get_wsgi_application()

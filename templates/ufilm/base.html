@@ -4,10 +4,83 @@
 <head>
     {% include "ufilm/dependencies.html" %}
     <style>
+        .checkbox-pair {
+            float: "left";
+            width: "150px";
+        }
+
+        @media(max-width: 1200px){
+            #logo {
+                transform: scale(1.8,1.8) translate(40px, 0px);
+            }
+            body {
+                font-size: 50px;
+            }
+
+            .panel-title {
+                font-size: 50px;
+            }
+            .checkbox-pair {
+                float: none;
+                width: auto;
+            }
+            input[type=checkbox] {
+                zoom: 3;
+                font-size: 35px;
+            }
+            .sorters select {
+                height: 50px;
+                border:1px solid #acacac;
+                width:250px;
+                line-height: 50px;
+                /* color:#df781b; */
+                font-size:40px;            
+            }
+            .double-slider {
+                padding-top: 15px;
+                padding-bottom: 15px;
+            }
+            .double-slider .handle {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            .double-slider .rail, .double-slider .rail-active {
+                height: 30px !important;
+                top: 15px !important;
+            }
+            .sorters {
+                font-size: 40px;
+            }
+            .modal-dialog {
+                width: 90%;
+            }
+            .film-modal {
+                font-size: 30px;
+            }
+            .film-modal button {
+                font-size: 50px;
+                float: right;
+                min-width: 100px;
+            }
+            .film-modal h4 {
+                font-size: 50px;
+                font-weight: bold;
+            }
+            .film-modal h5 {
+                font-size: 40px;
+            }
+            .film-modal img {
+                display: none;
+            }
+            .popover {
+                display: none !important;
+            }
+        }
         em {
             font-weight: bold;
             font-style: normal;
         }
+
         .left-value {
             text-align: right;
         }
@@ -44,13 +117,16 @@
         .link-table {
             margin-bottom: 50px;
         }
+        #listing_config .row {
+            margin-top: 3px;
+        }
     </style>
 </head>
 
 <body>
     <div id="top-menu">
         <a href="{% url 'home' %}">
-            <img src="{% static 'ufilm-logo.png' %}" />
+            <img id="logo" src="{% static 'ufilm-logo.png' %}" />
         </a>
         <div class="left-menu">
             <a href="{% url 'help' %}">
