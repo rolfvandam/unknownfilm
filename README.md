@@ -14,4 +14,4 @@ The only thing missing is the `host-settings.json` file. This should be placed o
 
 This project includes the scraper used to get the imdb title information. It can be run with `python manage.py updateindex`.
 
-This is the second version of the site. It the backend has been rewritten to use the Django REST framework. The frontend has been rewritten to use React with Reflux.
+This is the second version of the site. The backend has been rewritten to use the Django REST framework. The frontend has been rewritten to use React with Reflux instead of plain JQuery.
