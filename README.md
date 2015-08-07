@@ -1,6 +1,6 @@
 # unknownfilm
 
-This is the repository for the site running at [http://www.unknownfilm.net](unknownfilm.net).
+This is the repository for the site running at [unknownfilm.net](http://www.unknownfilm.net).
 
 The only thing missing is the `host-settings.json` file. This should be placed one directory below the checked out repo. It includes all the sensitive information that we absolutely do not want to have in a public repository. It should look like this:
 
