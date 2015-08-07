@@ -5,6 +5,7 @@ import urllib3
 import cProfile
 
 from django import forms
+from django.core.exceptions import MultipleObjectsReturned
 
 from ufilm.models import Film as ProcessedTitle, BadFilm as BadProcessedTitle
 from ufilm.forms import TitleForm
@@ -121,6 +122,10 @@ class Scraper(object):
         if not title_page_getter:
             title_page_getter = self.title_page_getter
         imdb_data = title_page_getter.get_info(imdb_id=title_code)
+        if imdb_data['title_type'] == "game":
+            bad_title = BadProcessedTitle.objects.get_or_create(code=title_code)[0]
+            print "Bad title (game):", bad_title.code, self.title_type
+            return None
         new_lists = [
             imdb_list
             for imdb_list in imdb_data.get(
@@ -180,7 +185,10 @@ class Scraper(object):
                 AssertionError, 
                 urllib3.exceptions.HTTPError, 
                 IndexError, 
-                AttributeError
+                AttributeError,
+                ValueError,
+                KeyError,
+                MultipleObjectsReturned
             ) as e:
                 self.output_message(
                     "Scrape error, continuing thread... %s"%(

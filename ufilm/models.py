@@ -95,11 +95,23 @@ class Film(models.Model):
             os.path.basename(thumb.url)
         )
 
-    def get_small_cover_url(self):
-        return self.get_cover_url(width=162, height=240)
+    def get_small_cover(self):
+        WIDTH, HEIGHT = 162, 240
+        url = self.get_cover_url(width=WIDTH, height=HEIGHT)
+        return {
+            'width': WIDTH,
+            'height': HEIGHT,
+            'url': url
+        }
 
-    def get_big_cover_url(self):
-        return self.get_cover_url(width=214, height=317)
+    def get_big_cover(self):
+        WIDTH, HEIGHT = 214, 317
+        url = self.get_cover_url(width=WIDTH, height=HEIGHT)
+        return {
+            'width': WIDTH,
+            'height': HEIGHT,
+            'url': url
+        }
 
     def has_cover(self):
         return True if self.cover else False

@@ -74,6 +74,8 @@ class IMDBTitlePage(object):
             )
             if re.search("TV", info_text):
                 return "tv"
+            elif re.search("Video Game", info_text):
+                return "game"
             else:
                 return "movie"
 

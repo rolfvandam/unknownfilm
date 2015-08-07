@@ -47,7 +47,12 @@ var TitleBox = React.createClass({
                 
                 <div>
                     <a href="javascript:;" onClick={this.openModal}>
-                        <img className="img-thumbnail" src={this.props.go_big ? this.props.title.big_cover_url : this.props.title.small_cover_url } />
+                        <img 
+                            className="img-thumbnail"
+                            width={this.props.go_big ? this.props.title.big_cover.width : this.props.title.small_cover.width}
+                            height={this.props.go_big ? this.props.title.big_cover.height : this.props.title.small_cover.height}
+                            src={this.props.go_big ? this.props.title.big_cover.url : this.props.title.small_cover.url } 
+                        />
                     </a>
 
                     <FilmModal 
@@ -102,7 +107,11 @@ var FilmModal = React.createClass({
                 <div className="container-fluid film-modal">
                 <Button onClick={this.props.onHide}>x</Button>
                 <div className="col-xs-12 col-lg-5">
-                    <img src={this.props.item.big_cover_url} />
+                    <img 
+                        width={this.props.item.big_cover.width} 
+                        height={this.props.item.big_cover.height} 
+                        src={this.props.item.big_cover.url} 
+                    />
                 </div>
                 <div className="col-xs-12 col-lg-6" style={{minHeight: "330px"}}>
                     <h4>{this.props.item.title} ({this.props.item.year})</h4>

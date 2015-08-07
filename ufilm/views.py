@@ -89,7 +89,6 @@ class FilmViewSet(viewsets.ModelViewSet):
                     queryset,
                     self.request.GET.get(key)
                 )
-                print "!!", queryset.query
         sortby = self.request.GET.get('sortby', 'grade')
         order = self.request.GET.get('order', '')
         queryset = queryset.order_by(
