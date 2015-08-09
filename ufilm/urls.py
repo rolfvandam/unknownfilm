@@ -19,10 +19,7 @@ from django.conf.urls.static import static
 from django.http import HttpResponse
 from rest_framework import routers
 
-from views import home, help_, about, FilmViewSet, init_listing_config
-
-router = routers.DefaultRouter()
-router.register(r'film', FilmViewSet)
+from views import home, help_, about, init_listing_config
 
 urlpatterns = [
     url(r'^$', home, name="home"),

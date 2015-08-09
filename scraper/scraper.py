@@ -2,7 +2,9 @@ import signal
 import sys
 import threading
 import urllib3
+import urllib2
 import cProfile
+import socket
 
 from django import forms
 from django.core.exceptions import MultipleObjectsReturned
@@ -19,7 +21,7 @@ class Scraper(object):
 
     CACHE_SIZE = 1000
 
-    def __init__(self, threads=1):
+    def __init__(self, threads=1, skip_init=False):
         '''Seeds the scraper with new titles from, for example, 
         the tv picks page or movie releases page.
 
@@ -29,11 +31,14 @@ class Scraper(object):
         self.threads = []
         self.title_cache = {}
         self.list_cache = {}
-        print "Initializing %s scraper..."%(self.title_type)
-        new_titles = self.filter_existing_titles(
-            self.imdb_seeder_class().get_info()
-        )
-        self.add_new_titles(new_titles)
+        if not skip_init:
+            print "Initializing %s scraper..."%(self.title_type)
+            new_titles = self.filter_existing_titles(
+                self.imdb_seeder_class().get_info()
+            )
+            self.add_new_titles(new_titles)
+        else:
+            print "Skipping seeding of %s scraper..."%(self.title_type)
 
     @classmethod
     def clean_queue(cls):
@@ -119,12 +124,19 @@ class Scraper(object):
             return False            
 
     def process_title(self, title_code, title_page_getter=None):
+        
         if not title_page_getter:
             title_page_getter = self.title_page_getter
-        imdb_data = title_page_getter.get_info(imdb_id=title_code)
-        if imdb_data['title_type'] == "game":
+        try:
+            imdb_data = title_page_getter.get_info(imdb_id=title_code)
+        except ValueError as e:
             bad_title = BadProcessedTitle.objects.get_or_create(code=title_code)[0]
-            print "Bad title (game):", bad_title.code, self.title_type
+            print "Bad title(min info):", bad_title.code, self.title_type, e
+            return None
+
+        if imdb_data['title_type'] == "game" or imdb_data['title_type'] == "episode":
+            bad_title = BadProcessedTitle.objects.get_or_create(code=title_code)[0]
+            print "Bad title (game/episode):", bad_title.code, self.title_type
             return None
         new_lists = [
             imdb_list
@@ -159,8 +171,8 @@ class Scraper(object):
         title_page_getter = IMDBTitlePage()
         list_page_getter = IMDBListPage()
         while True:
+            title = Title.get_and_lock_from_top(self.title_type)
             try:
-                title = Title.get_and_lock_from_top(self.title_type)
                 if title:
                     self.process_title(title.code, title_page_getter=title_page_getter)
                     title.delete()
@@ -183,7 +195,10 @@ class Scraper(object):
             except(
                 UnicodeEncodeError, 
                 AssertionError, 
-                urllib3.exceptions.HTTPError, 
+                urllib3.exceptions.HTTPError,
+                urllib2.HTTPError,
+                urllib2.URLError,
+                socket.error,
                 IndexError, 
                 AttributeError,
                 ValueError,
@@ -191,7 +206,8 @@ class Scraper(object):
                 MultipleObjectsReturned
             ) as e:
                 self.output_message(
-                    "Scrape error, continuing thread... %s"%(
+                    "Scrape error (%s), continuing thread... %s"%(
+                        title.code if title else "<>",
                         unicode(e)
                     )
                 )
@@ -233,7 +249,7 @@ class ScraperController(object):
         print('Press Ctrl+C to quit')
         signal.pause()
 
-    def scrape(self):
+    def scrape(self, skip_init=False):
         '''This starts the scraping process.
 
         It's implemented in such a way that we should get a nice mix of 
@@ -241,8 +257,8 @@ class ScraperController(object):
         '''
         Scraper.clean_queue()
         
-        self.tv_scraper = TVScraper(threads=2)
-        self.movie_scraper = MovieScraper(threads=2)
+        self.tv_scraper = TVScraper(threads=2, skip_init=skip_init)
+        self.movie_scraper = MovieScraper(threads=2, skip_init=skip_init)
 
         self.tv_scraper.start()
         self.movie_scraper.start()

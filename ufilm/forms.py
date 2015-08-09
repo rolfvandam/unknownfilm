@@ -1,9 +1,10 @@
 import urllib2
+import IPython
 
 from django import forms
 from django.core.files.base import ContentFile
 
-from .models import Film as Title, Country, Language, Genre, Person, Rating
+from .models import Film as Title, Country, Language, Genre, Person, Rating, TitleType
 
 class TitleForm(forms.ModelForm):
     '''This is used to validate the data coming from IMDb'''
@@ -12,6 +13,7 @@ class TitleForm(forms.ModelForm):
         model = Title
         fields = [
             'title_type',
+            'type_tags',
             
             'code',
             
@@ -62,7 +64,7 @@ class TitleForm(forms.ModelForm):
         data -- dict containing the data returned from IMDb
         '''
 
-        def names_to_object_ids(key, model, accessor=lambda x: x):
+        def names_to_objects(key, model, accessor=lambda x: x):
             if data.has_key(key):
                 return [
                     model.objects.get_or_create(name=accessor(name))[0].id
@@ -83,19 +85,21 @@ class TitleForm(forms.ModelForm):
         rating = Rating.objects.get_or_create(name=data['rating'])[0] if (
             data.has_key('rating') and data['rating']
         ) else None
+
         resolved_data.update({
 
             'code': imdb_code,
             'rating': rating,
+            'type_tags': names_to_objects('type_tags', TitleType),
 
-            'countries': names_to_object_ids('countries', Country),
-            'languages': names_to_object_ids('languages', Language),
-            'genres': names_to_object_ids('genres', Genre),
-            'directors': names_to_object_ids('directors', Person, accessor=person_accessor),
-            'stars': names_to_object_ids('actors', Person, accessor=person_accessor),
-            'writers': names_to_object_ids('writers', Person, accessor=person_accessor)
+            'countries': names_to_objects('countries', Country),
+            'languages': names_to_objects('languages', Language),
+            'genres': names_to_objects('genres', Genre),
+            'directors': names_to_objects('directors', Person, accessor=person_accessor),
+            'stars': names_to_objects('actors', Person, accessor=person_accessor),
+            'writers': names_to_objects('writers', Person, accessor=person_accessor)
 
-        })            
+        })
         form = cls(resolved_data)
         if form.is_valid():
             if data.has_key('cover_url') and data['cover_url']:
@@ -106,6 +110,7 @@ class TitleForm(forms.ModelForm):
                     filename, 
                     ContentFile(content)
                 )
+                form.save_m2m()
                 return o
             else:
                 return form.save()

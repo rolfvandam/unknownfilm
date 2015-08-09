@@ -65,17 +65,24 @@ class IMDBTitlePage(object):
         def parse_year(s):
             return re.search("\(?([0-9]{4})", s).group(1)
 
-        def get_title_type(soup):
+        def get_broad_title_types(soup):
             info_selector = soup.select("#overview-top .infobar")
-            if len(info_selector) <= 0:
+            seperator_index = lambda selector: selector[0].get_text().find("|")
+            if len(info_selector) <= 0 or seperator_index(info_selector) == -1:
                 raise ValueError("No title type found")
             info_text = unicode(
-                info_selector[0].get_text()
+                info_selector[0].get_text()[:seperator_index(info_selector)].strip()
             )
-            if re.search("TV", info_text):
-                return "tv"
-            elif re.search("Video Game", info_text):
+            return [t.strip() for t in info_text.split(',')]
+
+        def get_title_type(soup):
+            info_text = ",".join(get_broad_title_types(soup))
+            if re.search("Video Game", info_text):
                 return "game"
+            elif re.search("TV Episode", info_text):
+                return "episode"
+            elif re.search("TV", info_text):
+                return "tv"
             else:
                 return "movie"
 
@@ -88,6 +95,7 @@ class IMDBTitlePage(object):
             raise ValueError("No title found")
 
         info['title_type'] = get_title_type(soup)
+        info['type_tags'] = get_broad_title_types(soup)
 
         year_selector = soup.select("#overview-top h1.header .nobr")
         if len(year_selector) > 0:

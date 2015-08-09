@@ -43,6 +43,7 @@ class Film(models.Model):
         max_length=5, 
         choices=TITLE_TYPES
     )
+    type_tags = models.ManyToManyField('TitleType')
     
     code = models.CharField(max_length=200)
 
@@ -159,6 +160,9 @@ class Genre(Label):
     pass
 
 class Person(Label):
+    pass
+
+class TitleType(Label):
     pass
     
 class List(models.Model):

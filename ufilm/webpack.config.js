@@ -1,6 +1,7 @@
 var path = require("path");
 var webpack = require('webpack');
 var BundleTracker = require('webpack-bundle-tracker');
+var Clean = require('clean-webpack-plugin');
 
 module.exports = {
 
@@ -28,6 +29,7 @@ module.exports = {
       }
     })
     */
+    new Clean(['assets/bundles']),
   ],
 
   module: {

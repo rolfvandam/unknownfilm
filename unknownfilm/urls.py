@@ -21,7 +21,7 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from django.conf import settings
 
 import ufilm
-from ufilm.views import FilmViewSet
+from ufilm.viewsets import FilmViewSet
 
 router = routers.DefaultRouter()
 router.register(r'films', FilmViewSet)
