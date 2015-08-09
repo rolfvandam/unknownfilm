@@ -35,9 +35,32 @@ var TitleBox = React.createClass({
             showModal: false
         });
     },
+
+    getImageWidth: function(){
+        return this.props.go_big ? 
+            this.props.title.big_cover.width : this.props.title.small_cover.width;
+    },
+
+    getImageHeight: function(){
+        return this.props.go_big ? 
+            this.props.title.big_cover.height : this.props.title.small_cover.height;
+    },
     
+    getImageUrl: function(){
+        return this.props.go_big ? 
+            this.props.title.big_cover.url : this.props.title.small_cover.url
+    },
+
     render: function(){
-        return <div style={{float: "left", margin: "0px"}}>
+        return <div style={{
+                    float: "left", 
+                    margin: "0px", 
+                    width: this.getImageWidth()+"px",
+                    height: this.getImageHeight()+"px",
+                    backgroundImage: "url('/static/spinner.gif')",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat"
+                }}>
             <OverlayTrigger trigger={['hover']} placement={this.state.popoverPlacement} overlay={
                 <Popover title={this.props.title.title + " (" + this.props.title.year + ")"}>
                     <p>{truncate(this.props.title.description, 300)}</p>
@@ -49,9 +72,9 @@ var TitleBox = React.createClass({
                     <a href="javascript:;" onClick={this.openModal}>
                         <img 
                             className="img-thumbnail"
-                            width={this.props.go_big ? this.props.title.big_cover.width : this.props.title.small_cover.width}
-                            height={this.props.go_big ? this.props.title.big_cover.height : this.props.title.small_cover.height}
-                            src={this.props.go_big ? this.props.title.big_cover.url : this.props.title.small_cover.url } 
+                            width={this.getImageWidth()}
+                            height={this.getImageHeight()}
+                            src={this.getImageUrl()} 
                         />
                     </a>
 
