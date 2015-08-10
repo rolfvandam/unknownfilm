@@ -30,16 +30,22 @@ function is_small_device(){
 
 var listing_store = Reflux.createStore({
     listenables: [config_actions],
+    is_reloading: false,
     updateListing: function(){
+        this.is_reloading = true;
+        this.trigger(this.is_reloading);
+        let store = this;
         $.get(
             listing_config.listing_url, 
             get_compiled_listing_config()
         ).done(function(data){
             listing = data;
-            this.trigger(listing);
+            store.trigger(listing);
+            store.is_reloading = false;
+            store.trigger(store.is_reloading);
         }.bind(this));
     },
-    onLoadMore: function(){
+    onLoadMore: function(done_callback){
         $.get(
             listing.next, 
             get_compiled_listing_config()
@@ -48,6 +54,9 @@ var listing_store = Reflux.createStore({
             temp_listing.results = listing.results.concat(data.results);
             listing = temp_listing;
             this.trigger(listing);
+            if( typeof done_callback != 'undefined' ){
+                done_callback();
+            }
         }.bind(this));        
     },
     getListingState: function(){
@@ -60,8 +69,6 @@ var listing_store = Reflux.createStore({
         this.updateListing();
     },
     onUpdateConfigRange: function(set_key, left_value, right_value) {
-        console.log(set_key, left_value, right_value);
-
         let current = listing_config.sliders.sets[set_key];
         current.left_value = left_value;
         current.right_value = right_value;
@@ -91,6 +98,12 @@ var App = React.createClass({
         }
     },
 
+    getInitialState: function(){
+        return {
+            shadow_height: 0
+        }
+    },
+
     onDoubleRangeChange: function(set_key, left_value, right_value){
         config_actions.updateConfigRange(set_key, left_value, right_value);
     },
@@ -109,7 +122,16 @@ var App = React.createClass({
     },
 
     loadMore: function(){
-        config_actions.loadMore();
+        this.setState({
+            is_loading_more: true
+        });
+        config_actions.loadMore(this.doneLoadingMore);
+    },
+
+    doneLoadingMore: function(){
+        this.setState({
+            is_loading_more: false
+        });
     },
 
     render: function() {
@@ -207,7 +229,18 @@ var App = React.createClass({
                     </div>
                 </div>
             </div>
-            <div id='listing'>
+            <div id='listing' style={{position: "relative"}}>
+                <div className='shadow' style={{
+                    position: "absolute",
+                    backgroundColor: "black",
+                    opacity: 0.3,
+                    top: "0px",
+                    bottom: "0px",
+                    left: "0px",
+                    right: "0px",
+                    zIndex: 10,
+                    display: listing_store.is_reloading ? "inherit" : "none"
+                }}></div>
                 {
                     listing.hasOwnProperty('results') ?
                         listing.results.map(
@@ -231,10 +264,16 @@ var App = React.createClass({
                             paddingTop: '80px',
                             paddingLeft: '30px'
                         }}>
-                            More...
+                            {
+                                this.state.is_loading_more ? 
+                                    <img style={{marginLeft: "30px"}} src='/static/spinner.gif' /> :
+                                    "More..."
+
+                            }
                         </div>
                     </a> : ""
                 }
+                <div style={{clear: "both"}}></div>
             </div>
         </div>;
     }

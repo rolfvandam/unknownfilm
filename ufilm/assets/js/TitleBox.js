@@ -52,7 +52,7 @@ var TitleBox = React.createClass({
     },
 
     render: function(){
-        return <div style={{
+        return <div style={ {
                     float: "left", 
                     margin: "0px", 
                     width: this.getImageWidth()+"px",

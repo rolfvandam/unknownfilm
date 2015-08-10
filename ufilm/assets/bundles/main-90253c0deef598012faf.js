@@ -72,18 +72,27 @@
 
 	var listing_store = Reflux.createStore({
 	    listenables: [config_actions],
+	    is_reloading: false,
 	    updateListing: function updateListing() {
+	        this.is_reloading = true;
+	        this.trigger(this.is_reloading);
+	        var store = this;
 	        $.get(listing_config.listing_url, get_compiled_listing_config()).done((function (data) {
 	            listing = data;
-	            this.trigger(listing);
+	            store.trigger(listing);
+	            store.is_reloading = false;
+	            store.trigger(store.is_reloading);
 	        }).bind(this));
 	    },
-	    onLoadMore: function onLoadMore() {
+	    onLoadMore: function onLoadMore(done_callback) {
 	        $.get(listing.next, get_compiled_listing_config()).done((function (data) {
 	            var temp_listing = data;
 	            temp_listing.results = listing.results.concat(data.results);
 	            listing = temp_listing;
 	            this.trigger(listing);
+	            if (typeof done_callback != 'undefined') {
+	                done_callback();
+	            }
 	        }).bind(this));
 	    },
 	    getListingState: function getListingState() {
@@ -96,8 +105,6 @@
 	        this.updateListing();
 	    },
 	    onUpdateConfigRange: function onUpdateConfigRange(set_key, left_value, right_value) {
-	        console.log(set_key, left_value, right_value);
-
 	        var current = listing_config.sliders.sets[set_key];
 	        current.left_value = left_value;
 	        current.right_value = right_value;
@@ -127,6 +134,12 @@
 	        };
 	    },
 
+	    getInitialState: function getInitialState() {
+	        return {
+	            shadow_height: 0
+	        };
+	    },
+
 	    onDoubleRangeChange: function onDoubleRangeChange(set_key, left_value, right_value) {
 	        config_actions.updateConfigRange(set_key, left_value, right_value);
 	    },
@@ -140,7 +153,16 @@
 	    },
 
 	    loadMore: function loadMore() {
-	        config_actions.loadMore();
+	        this.setState({
+	            is_loading_more: true
+	        });
+	        config_actions.loadMore(this.doneLoadingMore);
+	    },
+
+	    doneLoadingMore: function doneLoadingMore() {
+	        this.setState({
+	            is_loading_more: false
+	        });
 	    },
 
 	    render: function render() {
@@ -268,7 +290,18 @@
 	            ),
 	            React.createElement(
 	                'div',
-	                { id: 'listing' },
+	                { id: 'listing', style: { position: 'relative' } },
+	                React.createElement('div', { className: 'shadow', style: {
+	                        position: 'absolute',
+	                        backgroundColor: 'black',
+	                        opacity: 0.3,
+	                        top: '0px',
+	                        bottom: '0px',
+	                        left: '0px',
+	                        right: '0px',
+	                        zIndex: 10,
+	                        display: listing_store.is_reloading ? 'inherit' : 'none'
+	                    } }),
 	                listing.hasOwnProperty('results') ? listing.results.map(function (title, i) {
 	                    return React.createElement(TitleBox, {
 	                        key: 'titlebox-' + i,
@@ -290,9 +323,10 @@
 	                                paddingTop: '80px',
 	                                paddingLeft: '30px'
 	                            } },
-	                        'More...'
+	                        this.state.is_loading_more ? React.createElement('img', { style: { marginLeft: '30px' }, src: '/static/spinner.gif' }) : 'More...'
 	                    )
-	                ) : ''
+	                ) : '',
+	                React.createElement('div', { style: { clear: 'both' } })
 	            )
 	        );
 	    }
