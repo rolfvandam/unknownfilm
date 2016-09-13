@@ -42,7 +42,7 @@ SECRET_KEY = host_settings['SECRET']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True if int(host_settings['DEBUG']) > 0 else False
 
-ALLOWED_HOSTS = ['deb-vm-x64', 'unknownfilm.net']
+ALLOWED_HOSTS = ['deb-vm-x64', '.unknownfilm.net', 'EM-11351-5217ae9663104']
 
 
 # Application definition
